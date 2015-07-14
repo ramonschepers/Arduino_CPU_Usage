@@ -1,7 +1,8 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
-#define LEDPIN 13
+//for a 16mhz avr
+#define UNLOADED_IDLE_COUNTS 220000
 
 uint32_t Idle_Counter;
 uint8_t CPU_Utilization_Info_Read_To_Compute;
@@ -41,10 +42,8 @@ void initTimer2(void)
 }
 void setup()
 {
-  pinMode(LEDPIN, OUTPUT);
-
   // initialize the serial communication:
-  Serial.begin(9600);
+  Serial.begin(115200);
 
   noInterrupts();
 
@@ -55,10 +54,6 @@ void setup()
   Serial.println("started");
 
 }
-void Signal_Idle(void)
-{
-  Idle_Counter++; 
-}
 uint32_t Read_Idle_Counts(void)
 {
   uint32_t rv;
@@ -67,7 +62,6 @@ uint32_t Read_Idle_Counts(void)
   interrupts();
   return rv;
 }
-#define UNLOADED_IDLE_COUNTS 174848
 uint32_t Calculate_CPU_Utilization (uint32_t temp_counts)
 {
   return 100 - ((100 * temp_counts) / UNLOADED_IDLE_COUNTS);
@@ -79,38 +73,36 @@ uint32_t Calculate_Idle_Counts (void)
   Prev_Idle_Counter = Idle_Counter;
   return Idle_Counts;
 }
-uint8_t One_MS_Task_Ready;
-uint8_t Ten_MS_Task_Ready;
-uint8_t Twenty_MS_Task_Ready;
-uint8_t One_Hundred_MS_Task_Ready;
-uint8_t One_S_Task_Ready;
-void One_MS_Task(void)
+bool One_MS_Task_Ready;
+bool Ten_MS_Task_Ready;
+bool One_Hundred_MS_Task_Ready;
+bool One_S_Task_Ready;
+inline void One_MS_Task(void)
 {
 
 }
-void Ten_MS_Task(void)
+inline void Ten_MS_Task(void)
 {
 
 }
-void One_Hundred_MS_Task(void)
+inline void One_Hundred_MS_Task(void)
 {
-  //10 * 50ms = 500ms delay
-  Serial.println("delay(50);");
-  delay(50);
 
 }
-void One_S_Task(void)
+inline void One_S_Task(void)
 {
   uint32_t idleCounts = Calculate_Idle_Counts();
-  digitalWrite(LEDPIN, !digitalRead(LEDPIN));
-  Serial.print("Last Idle_Counts  ");
-  Serial.println(idleCounts);
-  Serial.print("CPU Utilization  ");
-  Serial.print(Calculate_CPU_Utilization(idleCounts));
+  //make it a log scale for better accuracy
+  uint8_t percent1 = (Calculate_CPU_Utilization(idleCounts)*2)/2;
+  uint8_t percent2 = (Calculate_CPU_Utilization(idleCounts)*2)/2;
+  uint8_t percent = (percent1*percent2)/100;
+  //output percent to serial monitor
+  Serial.print(F("CPU usage: "));
+  Serial.print(percent);
   Serial.println("%");
 
 }
-void Run_Tasks(void)
+inline void Run_Tasks(void)
 {
   if(One_MS_Task_Ready)
   {
@@ -137,7 +129,7 @@ void Run_Tasks(void)
 // uint16_t previousMillis;
 void loop()
 {
-  Signal_Idle();
+  Idle_Counter++; 
   Run_Tasks();
 }
 /* WARNING this function called from ISR */
